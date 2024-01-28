@@ -1,8 +1,8 @@
-mod token;
+pub mod token;
 
-use crate::lexer::token::{Token, Name, Literal};
+use crate::lexer::token::{Literal, Name, Token};
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Lexer {
     input: String,
     position: usize,
@@ -11,6 +11,19 @@ pub struct Lexer {
 }
 
 impl Lexer {
+    pub fn new(input: String) -> Lexer {
+        let mut lexer = Lexer {
+            input,
+            position: 0,
+            read_position: 0,
+            ch: 0,
+        };
+
+        lexer.read_char();
+
+        return lexer;
+    }
+
     pub fn next_token(&mut self) -> Token {
         self.skip_whitespace();
 
@@ -19,19 +32,13 @@ impl Lexer {
         let token = match self.ch {
             0 => Token::new(Name::EOF, literal),
             b'=' => match self.peek_char() {
-                b'=' => Token::new(Name::EQ, Literal::new(vec![
-                    self.ch,
-                    self.read_char()
-                ])),
-                _ => Token::new(Name::ASSIGN, literal)
+                b'=' => Token::new(Name::EQ, Literal::new(vec![self.ch, self.read_char()])),
+                _ => Token::new(Name::ASSIGN, literal),
             },
             b'+' => Token::new(Name::PLUS, literal),
             b'-' => Token::new(Name::MINUS, literal),
             b'!' => match self.peek_char() {
-                b'=' => Token::new(Name::NOTEQ, Literal::new(vec![
-                    self.ch,
-                    self.read_char()
-                ])),
+                b'=' => Token::new(Name::NOTEQ, Literal::new(vec![self.ch, self.read_char()])),
                 _ => Token::new(Name::BANG, literal),
             },
             b'*' => Token::new(Name::ASTERISK, literal),
@@ -50,13 +57,13 @@ impl Lexer {
                     let name = Token::lookup_ident(&literal);
 
                     return Token::new(name, literal);
-                },
+                }
                 (_, true) => {
                     let literal = self.read_chars(|ch| is_digit(ch));
                     let name = Token::int_literal(&literal);
 
                     return Token::new(name, literal);
-                },
+                }
                 (_, _) => Token::new(Name::ILLEGAL, literal),
             },
         };
@@ -80,7 +87,8 @@ impl Lexer {
 
     // Read chars until `f` returns false.
     fn read_chars<F>(&mut self, f: F) -> Literal
-        where F: Fn(u8) -> bool
+    where
+        F: Fn(u8) -> bool,
     {
         let mut vec = vec![];
 
@@ -107,19 +115,6 @@ impl Lexer {
     }
 }
 
-pub fn new(input: String) -> Lexer {
-    let mut lexer = Lexer {
-        input,
-        position: 0,
-        read_position: 0,
-        ch: 0,
-    };
-
-    lexer.read_char();
-
-    return lexer;
-}
-
 fn is_letter(ch: u8) -> bool {
     return b'a' <= ch && ch <= b'z' || b'A' <= ch && ch <= b'Z' || ch == b'_';
 }
@@ -130,11 +125,13 @@ fn is_digit(ch: u8) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use crate::lexer::Lexer;
+
     #[test]
     fn next_token() {
         let input = String::from("=+(){},;");
 
-        let mut lexer = super::new(input);
+        let mut lexer = Lexer::new(input);
 
         assert_eq!(super::token::Name::ASSIGN, lexer.next_token().name);
         assert_eq!(super::token::Name::PLUS, lexer.next_token().name);
@@ -151,7 +148,7 @@ mod tests {
     fn illegal_next_token() {
         let input = String::from("#");
 
-        let mut lexer = super::new(input);
+        let mut lexer = Lexer::new(input);
 
         assert_eq!(super::token::Name::ILLEGAL, lexer.next_token().name);
         assert_eq!(super::token::Name::EOF, lexer.next_token().name);
@@ -159,7 +156,8 @@ mod tests {
 
     #[test]
     fn next_token_with_whitespace() {
-        let input = String::from("
+        let input = String::from(
+            "
             let five = 5;
             let ten = 10;
 
@@ -168,44 +166,78 @@ mod tests {
             };
 
             let result = add(five, ten);
-        ");
+        ",
+        );
 
-        let mut lexer = super::new(input);
+        let mut lexer = Lexer::new(input);
 
         assert_eq!(super::token::Name::LET, lexer.next_token().name);
-        assert_eq!(super::token::Name::IDENT(String::from("five")), lexer.next_token().name);
+        assert_eq!(
+            super::token::Name::IDENT(String::from("five")),
+            lexer.next_token().name
+        );
         assert_eq!(super::token::Name::ASSIGN, lexer.next_token().name);
         assert_eq!(super::token::Name::INT(5), lexer.next_token().name);
         assert_eq!(super::token::Name::SEMICOLON, lexer.next_token().name);
         assert_eq!(super::token::Name::LET, lexer.next_token().name);
-        assert_eq!(super::token::Name::IDENT(String::from("ten")), lexer.next_token().name);
+        assert_eq!(
+            super::token::Name::IDENT(String::from("ten")),
+            lexer.next_token().name
+        );
         assert_eq!(super::token::Name::ASSIGN, lexer.next_token().name);
         assert_eq!(super::token::Name::INT(10), lexer.next_token().name);
         assert_eq!(super::token::Name::SEMICOLON, lexer.next_token().name);
         assert_eq!(super::token::Name::LET, lexer.next_token().name);
-        assert_eq!(super::token::Name::IDENT(String::from("add")), lexer.next_token().name);
+        assert_eq!(
+            super::token::Name::IDENT(String::from("add")),
+            lexer.next_token().name
+        );
         assert_eq!(super::token::Name::ASSIGN, lexer.next_token().name);
         assert_eq!(super::token::Name::FUNCTION, lexer.next_token().name);
         assert_eq!(super::token::Name::LPAREN, lexer.next_token().name);
-        assert_eq!(super::token::Name::IDENT(String::from("x")), lexer.next_token().name);
+        assert_eq!(
+            super::token::Name::IDENT(String::from("x")),
+            lexer.next_token().name
+        );
         assert_eq!(super::token::Name::COMMA, lexer.next_token().name);
-        assert_eq!(super::token::Name::IDENT(String::from("y")), lexer.next_token().name);
+        assert_eq!(
+            super::token::Name::IDENT(String::from("y")),
+            lexer.next_token().name
+        );
         assert_eq!(super::token::Name::RPAREN, lexer.next_token().name);
         assert_eq!(super::token::Name::LBRACE, lexer.next_token().name);
-        assert_eq!(super::token::Name::IDENT(String::from("x")), lexer.next_token().name);
+        assert_eq!(
+            super::token::Name::IDENT(String::from("x")),
+            lexer.next_token().name
+        );
         assert_eq!(super::token::Name::PLUS, lexer.next_token().name);
-        assert_eq!(super::token::Name::IDENT(String::from("y")), lexer.next_token().name);
+        assert_eq!(
+            super::token::Name::IDENT(String::from("y")),
+            lexer.next_token().name
+        );
         assert_eq!(super::token::Name::SEMICOLON, lexer.next_token().name);
         assert_eq!(super::token::Name::RBRACE, lexer.next_token().name);
         assert_eq!(super::token::Name::SEMICOLON, lexer.next_token().name);
         assert_eq!(super::token::Name::LET, lexer.next_token().name);
-        assert_eq!(super::token::Name::IDENT(String::from("result")), lexer.next_token().name);
+        assert_eq!(
+            super::token::Name::IDENT(String::from("result")),
+            lexer.next_token().name
+        );
         assert_eq!(super::token::Name::ASSIGN, lexer.next_token().name);
-        assert_eq!(super::token::Name::IDENT(String::from("add")), lexer.next_token().name);
+        assert_eq!(
+            super::token::Name::IDENT(String::from("add")),
+            lexer.next_token().name
+        );
         assert_eq!(super::token::Name::LPAREN, lexer.next_token().name);
-        assert_eq!(super::token::Name::IDENT(String::from("five")), lexer.next_token().name);
+        assert_eq!(
+            super::token::Name::IDENT(String::from("five")),
+            lexer.next_token().name
+        );
         assert_eq!(super::token::Name::COMMA, lexer.next_token().name);
-        assert_eq!(super::token::Name::IDENT(String::from("ten")), lexer.next_token().name);
+        assert_eq!(
+            super::token::Name::IDENT(String::from("ten")),
+            lexer.next_token().name
+        );
         assert_eq!(super::token::Name::RPAREN, lexer.next_token().name);
         assert_eq!(super::token::Name::SEMICOLON, lexer.next_token().name);
         assert_eq!(super::token::Name::EOF, lexer.next_token().name);
@@ -213,12 +245,14 @@ mod tests {
 
     #[test]
     fn next_token_with_gibberish() {
-        let input = String::from("
+        let input = String::from(
+            "
             !-/*5;
             5 < 10 > 5;
-        ");
+        ",
+        );
 
-        let mut lexer = super::new(input);
+        let mut lexer = Lexer::new(input);
 
         assert_eq!(super::token::Name::BANG, lexer.next_token().name);
         assert_eq!(super::token::Name::MINUS, lexer.next_token().name);
@@ -237,15 +271,17 @@ mod tests {
 
     #[test]
     fn next_token_with_conditions() {
-        let input = String::from("
+        let input = String::from(
+            "
             if (5 < 10) {
                 return true;
             } else {
                 return false;
             }
-        ");
+        ",
+        );
 
-        let mut lexer = super::new(input);
+        let mut lexer = Lexer::new(input);
 
         assert_eq!(super::token::Name::IF, lexer.next_token().name);
         assert_eq!(super::token::Name::LPAREN, lexer.next_token().name);
@@ -269,12 +305,14 @@ mod tests {
 
     #[test]
     fn next_token_with_two_character_operators() {
-        let input = String::from("
+        let input = String::from(
+            "
             10 == 10;
             10 != 9;
-        ");
+        ",
+        );
 
-        let mut lexer = super::new(input);
+        let mut lexer = Lexer::new(input);
 
         assert_eq!(super::token::Name::INT(10), lexer.next_token().name);
         assert_eq!(super::token::Name::EQ, lexer.next_token().name);

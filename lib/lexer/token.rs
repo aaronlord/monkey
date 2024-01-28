@@ -1,6 +1,5 @@
 #[allow(dead_code)]
-
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Name {
     // Special
     ILLEGAL,
@@ -44,16 +43,14 @@ pub enum Name {
     RETURN,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Literal {
     pub chars: Vec<u8>,
 }
 
 impl Literal {
     pub fn new(chars: Vec<u8>) -> Literal {
-        Literal {
-            chars,
-        }
+        Literal { chars }
     }
 
     pub fn to_string(&self) -> String {
@@ -61,7 +58,7 @@ impl Literal {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Token {
     pub name: Name,
     pub literal: Literal,
@@ -69,10 +66,7 @@ pub struct Token {
 
 impl Token {
     pub fn new(name: Name, literal: Literal) -> Token {
-        Token {
-            name,
-            literal,
-        }
+        Token { name, literal }
     }
 
     pub fn lookup_ident(literal: &Literal) -> Name {
@@ -97,6 +91,10 @@ impl Token {
             Ok(int) => Name::INT(int),
             Err(_) => Name::ILLEGAL,
         }
+    }
+
+    pub fn is_semicolon(&self) -> bool {
+        self.name == Name::SEMICOLON
     }
 
     pub fn is_eof(&self) -> bool {
